@@ -1,0 +1,125 @@
+#!/bin/bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_FILE=".figma/make/env"
+if [ -f "$ENV_FILE" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "$ENV_FILE"
+    set +a
+fi
+
+COMPOSE=(docker compose -f compose.figma.yaml)
+MARKER_DIR="var/figma-make"
+ADMIN_APP_DIR="src/Administration/Resources/app/administration"
+COMPOSER_INSTALLED_FILE="vendor/composer/installed.json"
+ADMIN_NPM_INSTALLED_LOCK="$ADMIN_APP_DIR/node_modules/.package-lock.json"
+
+mkdir -p "$MARKER_DIR"
+
+hash_files() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$@" | sha256sum | awk '{ print $1 }'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$@" | shasum -a 256 | awk '{ print $1 }'
+    else
+        cksum "$@" | cksum | awk '{ print $1 }'
+    fi
+}
+
+needs_composer_install() {
+    local current_hash
+
+    current_hash="$(hash_files composer.json composer.lock)"
+    echo "$current_hash"
+
+    if [ ! -f vendor/autoload.php ] || [ ! -f "$COMPOSER_INSTALLED_FILE" ]; then
+        return 0
+    fi
+
+    if [ ! -f "$MARKER_DIR/composer.hash" ]; then
+        if [ composer.json -nt "$COMPOSER_INSTALLED_FILE" ] || [ composer.lock -nt "$COMPOSER_INSTALLED_FILE" ]; then
+            return 0
+        fi
+
+        return 1
+    fi
+
+    if [ "$(cat "$MARKER_DIR/composer.hash")" != "$current_hash" ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+needs_admin_npm_install() {
+    local current_hash
+
+    current_hash="$(hash_files "$ADMIN_APP_DIR/package.json" "$ADMIN_APP_DIR/package-lock.json")"
+    echo "$current_hash"
+
+    if [ ! -d "$ADMIN_APP_DIR/node_modules" ] || [ ! -f "$ADMIN_NPM_INSTALLED_LOCK" ]; then
+        return 0
+    fi
+
+    if [ ! -f "$MARKER_DIR/admin-npm.hash" ]; then
+        if [ "$ADMIN_APP_DIR/package.json" -nt "$ADMIN_NPM_INSTALLED_LOCK" ] || [ "$ADMIN_APP_DIR/package-lock.json" -nt "$ADMIN_NPM_INSTALLED_LOCK" ]; then
+            return 0
+        fi
+
+        return 1
+    fi
+
+    if [ "$(cat "$MARKER_DIR/admin-npm.hash")" != "$current_hash" ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+database_is_installed() {
+    local count
+
+    count="$("${COMPOSE[@]}" exec -T database mariadb -uroot -proot --skip-column-names --batch -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'shopware' AND table_name = 'sales_channel';" 2>/dev/null || true)"
+    count="${count//[[:space:]]/}"
+
+    [ "$count" = "1" ]
+}
+
+echo "Starting Figma Make services..."
+"${COMPOSE[@]}" up -d --wait
+
+if composer_hash="$(needs_composer_install)"; then
+    echo "Installing PHP dependencies..."
+    "${COMPOSE[@]}" exec -T web composer install -o --no-interaction --prefer-dist --no-scripts
+    printf '%s\n' "$composer_hash" > "$MARKER_DIR/composer.hash"
+else
+    echo "PHP dependencies are up to date."
+    printf '%s\n' "$composer_hash" > "$MARKER_DIR/composer.hash"
+fi
+
+"${COMPOSE[@]}" exec -T web mkdir -p custom/plugins
+
+if [ "${FIGMA_FORCE_RESET:-0}" = "1" ]; then
+    echo "FIGMA_FORCE_RESET=1, reinstalling Shopware database..."
+    "${COMPOSE[@]}" exec -T web composer init:db
+elif database_is_installed; then
+    echo "Shopware database is already installed."
+else
+    echo "Installing Shopware database..."
+    "${COMPOSE[@]}" exec -T web composer init:db
+fi
+
+if admin_npm_hash="$(needs_admin_npm_install)"; then
+    echo "Installing Administration npm dependencies..."
+    "${COMPOSE[@]}" exec -T web composer npm:admin clean-install --no-audit --prefer-offline
+    printf '%s\n' "$admin_npm_hash" > "$MARKER_DIR/admin-npm.hash"
+else
+    echo "Administration npm dependencies are up to date."
+    printf '%s\n' "$admin_npm_hash" > "$MARKER_DIR/admin-npm.hash"
+fi
+
+echo "Figma Make setup is ready for ${FIGMA_MAKE_URL:-http://localhost:9173}."

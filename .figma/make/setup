@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT_DIR"
+
+# Shopware requires Docker (CONTRIBUTING.md > Prerequisites)
+# Start Docker Desktop if not running (macOS)
+if ! docker info >/dev/null 2>&1; then
+    echo "Starting Docker Desktop..."
+    open -a Docker
+    for i in $(seq 1 60); do
+        docker info >/dev/null 2>&1 && break
+        [ "$i" -eq 60 ] && { echo "Docker failed to start"; exit 1; }
+        sleep 1
+    done
+fi
+
+echo "Pulling Docker images..."
+docker compose -f compose.figma.yaml pull

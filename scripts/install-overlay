@@ -1,0 +1,23 @@
+#!/bin/bash
+set -euo pipefail
+
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TARGET_DIR="${1:-$PWD}"
+
+if [ ! -f "$TARGET_DIR/composer.json" ] || [ ! -d "$TARGET_DIR/src/Administration/Resources/app/administration" ]; then
+    echo "Target must be a Shopware source checkout: $TARGET_DIR" >&2
+    exit 1
+fi
+
+install -d "$TARGET_DIR/.figma/make"
+
+install -m 0644 "$SOURCE_DIR/compose.figma.yaml" "$TARGET_DIR/compose.figma.yaml"
+install -m 0644 "$SOURCE_DIR/.figma/make/README.md" "$TARGET_DIR/.figma/make/README.md"
+install -m 0644 "$SOURCE_DIR/.figma/make/env" "$TARGET_DIR/.figma/make/env"
+
+install -m 0755 "$SOURCE_DIR/.figma/make/setup" "$TARGET_DIR/.figma/make/setup"
+install -m 0755 "$SOURCE_DIR/.figma/make/install" "$TARGET_DIR/.figma/make/install"
+install -m 0755 "$SOURCE_DIR/.figma/make/dev" "$TARGET_DIR/.figma/make/dev"
+install -m 0755 "$SOURCE_DIR/.figma/make/verify" "$TARGET_DIR/.figma/make/verify"
+
+echo "Installed Shopware Figma Make overlay into $TARGET_DIR"

@@ -1,0 +1,59 @@
+#!/bin/bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_FILE=".figma/make/env"
+if [ -f "$ENV_FILE" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "$ENV_FILE"
+    set +a
+fi
+
+FIGMA_MAKE_URL="${FIGMA_MAKE_URL:-http://localhost:9173}"
+BOOTSTRAP_TIMEOUT="${BOOTSTRAP_TIMEOUT:-600000}"
+SNIPPET_URL="${FIGMA_MAKE_URL%/}/api/_admin/snippets?locale=en-GB"
+TIMEOUT_SECONDS=$((BOOTSTRAP_TIMEOUT / 1000))
+
+if [ "$TIMEOUT_SECONDS" -lt 1 ]; then
+    TIMEOUT_SECONDS=1
+fi
+
+deadline=$((SECONDS + TIMEOUT_SECONDS))
+preview_ready=0
+
+while [ "$SECONDS" -le "$deadline" ]; do
+    status="$(curl -L -s --connect-timeout 2 --max-time 10 -o /dev/null -w '%{http_code}' "$FIGMA_MAKE_URL" || true)"
+
+    case "$status" in
+        2*|3*)
+            preview_ready=1
+            break
+            ;;
+    esac
+
+    sleep 2
+done
+
+if [ "$preview_ready" != "1" ]; then
+    echo "Figma Make preview did not become ready at $FIGMA_MAKE_URL within ${TIMEOUT_SECONDS}s." >&2
+    exit 1
+fi
+
+while [ "$SECONDS" -le "$deadline" ]; do
+    snippets="$(curl -L -s --connect-timeout 2 --max-time 10 "$SNIPPET_URL" || true)"
+
+    case "$snippets" in
+        *'"headlineMain":"Hello!"'*'"subheadlineMain":"Welcome back."'*)
+            echo "Figma Make preview and Administration snippets are ready at $FIGMA_MAKE_URL."
+            exit 0
+            ;;
+    esac
+
+    sleep 2
+done
+
+echo "Figma Make preview responded, but Administration snippets did not load from $SNIPPET_URL within ${TIMEOUT_SECONDS}s." >&2
+exit 1

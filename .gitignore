@@ -1,0 +1,6 @@
+.DS_Store
+var/
+vendor/
+node_modules/
+shopware/
+*.log
