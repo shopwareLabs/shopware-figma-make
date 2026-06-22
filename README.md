@@ -45,7 +45,7 @@ Then verify the running preview:
 
 The overlay writes `.figma/make/env` with these defaults:
 
-- `FIGMA_MAKE_URL=http://localhost:9173`
+- `FIGMA_MAKE_URL=http://localhost:5173`
 - `FIGMA_INTERNAL_APP_URL=http://localhost:8000`
 - `BOOTSTRAP_TIMEOUT=600000`
 
@@ -53,7 +53,9 @@ Use `FIGMA_FORCE_RESET=1 .figma/make/install` to force `composer init:db`.
 
 ## Watcher Proxy Note
 
-The Administration watcher runs inside the Docker `web` container. The host-facing Shopware URL is `http://localhost:9000`, but Vite's internal `/api` proxy must target `http://localhost:8000` from inside that container.
+The overlay follows Shopware's default local ports: Shopware itself is available at `http://localhost:8000`, and the Administration watcher is available at `http://localhost:5173`.
+
+The Administration watcher runs inside the Docker `web` container. Vite's internal `/api` proxy must target `http://localhost:8000` from inside that container.
 
 If Administration text renders as snippet keys such as `sw-login.index.headlineMain`, the watcher is usually running but the Vite API proxy cannot reach Shopware.
 

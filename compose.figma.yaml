@@ -4,12 +4,12 @@ services:
     web:
         image: ghcr.io/shopware/docker-dev:php8.4-node24-caddy
         ports:
-            - 9000:8000
-            - 9173:5173
+            - 8000:8000
+            - 5173:5173
         environment:
             COMPOSER_ROOT_VERSION: 6.7.9999999-dev
             HOST: '0.0.0.0'
-            APP_URL: http://localhost:9000
+            APP_URL: http://localhost:8000
             DATABASE_URL: mysql://root:root@database/shopware
             MAILER_DSN: smtp://mailer:1025
             OPENSEARCH_URL: http://opensearch:9200
