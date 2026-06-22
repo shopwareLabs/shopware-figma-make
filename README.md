@@ -24,6 +24,8 @@ The included Docker Compose stack is intended only for local development and use
 
 ## Codex-Assisted Setup
 
+### From This Overlay Repository
+
 Open this repository in Codex and use the prompt below to set up the overlay.
 
 ```text
@@ -55,6 +57,25 @@ By default, a clean checkout is cloned to:
 Override that location with `SHOPWARE_DEFAULT_CLONE_DIR`.
 
 The bootstrap script only copies overlay files. It does not run Docker setup, Shopware installation, or the watcher.
+
+### From an Existing Shopware Checkout
+
+Open the Shopware checkout in Codex and use the prompt below to install the overlay without keeping a second checkout around.
+
+```text
+Install the public Shopware Figma Make overlay into this existing Shopware checkout. Download https://github.com/shopwareLabs/shopware-figma-make into a temporary directory, run its scripts/install-overlay command against this Shopware root, and clean up the temporary download afterwards. Do not run .figma/make/setup, .figma/make/install, or .figma/make/dev yet.
+```
+
+Codex can perform the same flow with:
+
+```bash
+tmpdir="$(mktemp -d)"
+git clone --depth 1 https://github.com/shopwareLabs/shopware-figma-make "$tmpdir/shopware-figma-make"
+"$tmpdir/shopware-figma-make/scripts/install-overlay" .
+rm -rf "$tmpdir"
+```
+
+This copies only the overlay files into the current Shopware root.
 
 ## Install Into Shopware
 
