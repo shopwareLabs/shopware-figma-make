@@ -13,6 +13,7 @@ These scripts run a fast Shopware setup for Figma Make. They target the Administ
 
 `.figma/make/env` defines the preview URL and timeout:
 
+- `PORT` defaults to `5173`, matching Shopware's default Administration watcher port.
 - `FIGMA_MAKE_URL` defaults to `http://localhost:5173`.
 - `FIGMA_INTERNAL_APP_URL` defaults to `http://localhost:8000` and is used only inside `.figma/make/dev` for Vite's `/api` proxy target.
 - `BOOTSTRAP_TIMEOUT` is in milliseconds and defaults to `600000`.

@@ -12,7 +12,8 @@ if [ -f "$ENV_FILE" ]; then
     set +a
 fi
 
-FIGMA_MAKE_URL="${FIGMA_MAKE_URL:-http://localhost:9173}"
+PORT="${PORT:-5173}"
+FIGMA_MAKE_URL="${FIGMA_MAKE_URL:-http://localhost:$PORT}"
 BOOTSTRAP_TIMEOUT="${BOOTSTRAP_TIMEOUT:-600000}"
 SNIPPET_URL="${FIGMA_MAKE_URL%/}/api/_admin/snippets?locale=en-GB"
 TIMEOUT_SECONDS=$((BOOTSTRAP_TIMEOUT / 1000))

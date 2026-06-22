@@ -13,11 +13,12 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 COMPOSE=(docker compose -f compose.figma.yaml)
-FIGMA_MAKE_URL="${FIGMA_MAKE_URL:-http://localhost:9173}"
+PORT="${PORT:-5173}"
+FIGMA_MAKE_URL="${FIGMA_MAKE_URL:-http://localhost:$PORT}"
 FIGMA_INTERNAL_APP_URL="${FIGMA_INTERNAL_APP_URL:-http://localhost:8000}"
 
 echo "Starting Figma Make services..."
 "${COMPOSE[@]}" up -d --wait
 
 echo "Starting Administration watcher for $FIGMA_MAKE_URL..."
-"${COMPOSE[@]}" exec -T web env APP_URL="$FIGMA_INTERNAL_APP_URL" composer watch:admin
+"${COMPOSE[@]}" exec -T web env APP_URL="$FIGMA_INTERNAL_APP_URL" PORT="$PORT" composer watch:admin

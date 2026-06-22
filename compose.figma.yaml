@@ -1,14 +1,19 @@
 name: shopware-figma
 
+# Local development stack only. Ports and local service credentials follow
+# Shopware's default development Compose setup.
 services:
     web:
         image: ghcr.io/shopware/docker-dev:php8.4-node24-caddy
         ports:
             - 8000:8000
             - 5173:5173
+            - 9998:9998
+            - 9999:9999
         environment:
             COMPOSER_ROOT_VERSION: 6.7.9999999-dev
             HOST: '0.0.0.0'
+            PORT: '5173'
             APP_URL: http://localhost:8000
             DATABASE_URL: mysql://root:root@database/shopware
             MAILER_DSN: smtp://mailer:1025
@@ -22,6 +27,8 @@ services:
 
     database:
         image: mariadb:11
+        ports:
+            - 3306:3306
         environment:
             MARIADB_ROOT_PASSWORD: root
             MARIADB_DATABASE: shopware
@@ -48,12 +55,23 @@ services:
             timeout: 1s
             retries: 10
 
+    adminer:
+        image: adminer
+        stop_signal: SIGKILL
+        depends_on: [ database ]
+        environment:
+            ADMINER_DEFAULT_SERVER: database
+        ports:
+            - '9080:8080'
+
     valkey:
         image: valkey/valkey:alpine
         command: [ "--maxmemory-policy", "volatile-lfu", "--save", "", "--appendonly", "no" ]
 
     mailer:
         image: axllent/mailpit
+        ports:
+            - '8025:8025'
 
     opensearch:
         image: opensearchproject/opensearch:2

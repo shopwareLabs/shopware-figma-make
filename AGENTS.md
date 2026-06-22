@@ -11,6 +11,8 @@ When a user asks to set up, test, or install this overlay:
 3. If it exits because no recent checkout exists, ask the user before cloning Shopware.
 4. Only after user approval, run `scripts/codex-bootstrap --non-interactive --clone-if-missing`.
 
+After a successful setup, do not tell the user "The script reported the preview URL as:" or surface `http://localhost:5173` as the completion message. Instead, tell the user they can now open the local Shopware project in Figma Make to start local Shopware development.
+
 The bootstrap script only installs overlay files. It does not run:
 
 - `.figma/make/setup`

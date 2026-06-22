@@ -13,6 +13,7 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 COMPOSE=(docker compose -f compose.figma.yaml)
+PORT="${PORT:-5173}"
 MARKER_DIR="var/figma-make"
 ADMIN_APP_DIR="src/Administration/Resources/app/administration"
 COMPOSER_INSTALLED_FILE="vendor/composer/installed.json"
@@ -122,4 +123,4 @@ else
     printf '%s\n' "$admin_npm_hash" > "$MARKER_DIR/admin-npm.hash"
 fi
 
-echo "Figma Make setup is ready for ${FIGMA_MAKE_URL:-http://localhost:9173}."
+echo "Figma Make setup is ready for ${FIGMA_MAKE_URL:-http://localhost:$PORT}."
