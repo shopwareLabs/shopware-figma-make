@@ -1,0 +1,245 @@
+#!/bin/bash
+set -euo pipefail
+
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SHOPWARE_REMOTE="${SHOPWARE_REMOTE:-https://github.com/shopware/shopware.git}"
+DEFAULT_CLONE_DIR="${SHOPWARE_DEFAULT_CLONE_DIR:-$HOME/Developer/Shopware/shopware}"
+
+TARGET_DIR=""
+CLONE_IF_MISSING=0
+NON_INTERACTIVE=0
+
+usage() {
+    cat <<'USAGE'
+Usage: scripts/codex-bootstrap [options]
+
+Find a recent Shopware trunk checkout and install the Figma Make overlay.
+
+Options:
+  --target PATH          Install into this Shopware checkout.
+  --clone-if-missing    Clone a clean Shopware trunk checkout when none is found.
+  --non-interactive     Do not prompt; exit if confirmation would be needed.
+  -h, --help            Show this help.
+
+Environment:
+  SHOPWARE_DEFAULT_CLONE_DIR  Clone target when --clone-if-missing is used.
+  SHOPWARE_REMOTE             Shopware Git remote URL.
+USAGE
+}
+
+die() {
+    echo "$*" >&2
+    exit 1
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --target)
+            [ "$#" -ge 2 ] || die "--target requires a path"
+            TARGET_DIR="$2"
+            shift 2
+            ;;
+        --clone-if-missing)
+            CLONE_IF_MISSING=1
+            shift
+            ;;
+        --non-interactive)
+            NON_INTERACTIVE=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            die "Unknown option: $1"
+            ;;
+    esac
+done
+
+is_shopware_checkout() {
+    local dir="$1"
+
+    [ -f "$dir/composer.json" ] \
+        && [ -d "$dir/src/Administration/Resources/app/administration" ] \
+        && { [ -f "$dir/bin/console" ] || [ -f "$dir/bin/shopware" ]; }
+}
+
+is_git_checkout() {
+    git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+fetch_trunk_ref() {
+    local dir="$1"
+    local remote
+
+    remote="$(git -C "$dir" remote get-url origin 2>/dev/null || true)"
+    [ -n "$remote" ] || return 0
+
+    git -C "$dir" fetch --quiet origin trunk >/dev/null 2>&1 || true
+}
+
+is_recent_trunk_checkout() {
+    local dir="$1"
+    local branch
+    local behind
+
+    is_git_checkout "$dir" || return 1
+    git -C "$dir" show-ref --verify --quiet refs/remotes/origin/trunk || return 1
+
+    branch="$(git -C "$dir" branch --show-current 2>/dev/null || true)"
+    [ "$branch" = "trunk" ] || return 1
+
+    behind="$(git -C "$dir" rev-list --count HEAD..origin/trunk 2>/dev/null || echo 1)"
+    [ "$behind" = "0" ]
+}
+
+install_overlay() {
+    local target="$1"
+
+    is_shopware_checkout "$target" || die "Target must be a Shopware source checkout: $target"
+
+    "$SOURCE_DIR/scripts/install-overlay" "$target"
+
+    cat <<NEXT
+
+Overlay installed into:
+  $target
+
+Next commands to run from the Shopware checkout or from Figma Make:
+  .figma/make/setup
+  .figma/make/install
+  .figma/make/dev
+
+Preview URL:
+  http://localhost:5173
+NEXT
+}
+
+prompt_yes_no() {
+    local question="$1"
+    local answer
+
+    if [ "$NON_INTERACTIVE" = "1" ] || [ ! -t 0 ]; then
+        return 1
+    fi
+
+    printf '%s [y/N] ' "$question"
+    read -r answer
+
+    case "$answer" in
+        y|Y|yes|YES)
+            return 0
+            ;;
+    esac
+
+    return 1
+}
+
+declare -a CANDIDATES=()
+
+add_candidate() {
+    local candidate="$1"
+    local resolved
+    local existing
+
+    [ -d "$candidate" ] || return 0
+    resolved="$(cd "$candidate" 2>/dev/null && pwd -P)" || return 0
+    is_shopware_checkout "$resolved" || return 0
+
+    for existing in "${CANDIDATES[@]}"; do
+        [ "$existing" = "$resolved" ] && return 0
+    done
+
+    CANDIDATES+=("$resolved")
+}
+
+collect_candidates() {
+    local root
+    local composer_file
+
+    add_candidate "$HOME/Developer/Shopware/shopware"
+    add_candidate "$HOME/Developer/shopware"
+    add_candidate "$HOME/Projects/shopware"
+    add_candidate "$HOME/Code/shopware"
+    add_candidate "$HOME/Sites/shopware"
+    add_candidate "$HOME/src/shopware"
+    add_candidate "$HOME/work/shopware"
+
+    for root in "$HOME/Developer" "$HOME/Projects" "$HOME/Code" "$HOME/Sites" "$HOME/src" "$HOME/work"; do
+        [ -d "$root" ] || continue
+
+        while IFS= read -r composer_file; do
+            add_candidate "$(dirname "$composer_file")"
+        done < <(find "$root" -maxdepth 5 -name composer.json -not -path '*/vendor/*' -not -path '*/node_modules/*' 2>/dev/null)
+    done
+}
+
+select_recent_candidate() {
+    local candidate
+
+    for candidate in "${CANDIDATES[@]}"; do
+        fetch_trunk_ref "$candidate"
+
+        if is_recent_trunk_checkout "$candidate"; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+clone_clean_trunk() {
+    local target="$DEFAULT_CLONE_DIR"
+    local parent
+
+    if [ -e "$target" ]; then
+        die "Clone target already exists: $target"
+    fi
+
+    parent="$(dirname "$target")"
+    mkdir -p "$parent"
+
+    git clone --branch trunk --single-branch "$SHOPWARE_REMOTE" "$target"
+    printf '%s\n' "$target"
+}
+
+if [ -n "$TARGET_DIR" ]; then
+    install_overlay "$TARGET_DIR"
+    exit 0
+fi
+
+collect_candidates
+
+if [ "${#CANDIDATES[@]}" -gt 0 ]; then
+    if target="$(select_recent_candidate)"; then
+        echo "Using recent Shopware trunk checkout: $target"
+        install_overlay "$target"
+        exit 0
+    fi
+
+    echo "Found Shopware checkouts, but none appears to be an up-to-date local trunk:"
+    printf '  %s\n' "${CANDIDATES[@]}"
+    echo
+fi
+
+if [ "$CLONE_IF_MISSING" != "1" ]; then
+    if prompt_yes_no "No recent Shopware trunk checkout found. Clone clean trunk into $DEFAULT_CLONE_DIR?"; then
+        CLONE_IF_MISSING=1
+    else
+        cat >&2 <<NEXT
+No overlay installed.
+
+To clone a clean trunk checkout after approval, run:
+  scripts/codex-bootstrap --clone-if-missing
+
+To use a specific existing checkout, run:
+  scripts/codex-bootstrap --target /path/to/shopware
+NEXT
+        exit 2
+    fi
+fi
+
+target="$(clone_clean_trunk)"
+install_overlay "$target"

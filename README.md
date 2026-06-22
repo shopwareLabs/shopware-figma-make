@@ -9,9 +9,36 @@ This repository is an overlay. It contains the files Figma Make expects in a Sho
 - `compose.figma.yaml` starts the Figma-only Docker stack.
 - `.figma/make/setup` pulls Docker images and starts Docker Desktop on macOS when needed.
 - `.figma/make/install` performs a fast, idempotent Shopware setup for Figma Make.
-- `.figma/make/dev` starts the Administration watcher at `http://localhost:9173`.
+- `.figma/make/dev` starts the Administration watcher at `http://localhost:5173`.
 - `.figma/make/verify` checks the preview and Administration snippet loading.
 - `scripts/install-overlay` copies the overlay into a Shopware checkout.
+- `scripts/codex-bootstrap` helps Codex find or create a Shopware checkout and install the overlay.
+
+## Codex-Assisted Setup
+
+Open this repository in Codex and ask it to set up the overlay. The included `AGENTS.md` tells Codex to run:
+
+```bash
+scripts/codex-bootstrap --non-interactive
+```
+
+The bootstrap script searches common user folders for a recent Shopware `trunk` checkout. When it finds one, it installs the overlay there and prints the Figma Make commands.
+
+If no recent checkout exists, Codex should ask before cloning a clean `trunk` checkout. After approval it can run:
+
+```bash
+scripts/codex-bootstrap --non-interactive --clone-if-missing
+```
+
+By default, a clean checkout is cloned to:
+
+```text
+~/Developer/Shopware/shopware
+```
+
+Override that location with `SHOPWARE_DEFAULT_CLONE_DIR`.
+
+The bootstrap script only copies overlay files. It does not run Docker setup, Shopware installation, or the watcher.
 
 ## Install Into Shopware
 
