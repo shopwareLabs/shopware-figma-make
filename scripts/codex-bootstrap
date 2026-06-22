@@ -147,7 +147,7 @@ add_candidate() {
     resolved="$(cd "$candidate" 2>/dev/null && pwd -P)" || return 0
     is_shopware_checkout "$resolved" || return 0
 
-    for existing in "${CANDIDATES[@]}"; do
+    for existing in "${CANDIDATES[@]+"${CANDIDATES[@]}"}"; do
         [ "$existing" = "$resolved" ] && return 0
     done
 
@@ -178,7 +178,7 @@ collect_candidates() {
 select_recent_candidate() {
     local candidate
 
-    for candidate in "${CANDIDATES[@]}"; do
+    for candidate in "${CANDIDATES[@]+"${CANDIDATES[@]}"}"; do
         fetch_trunk_ref "$candidate"
 
         if is_recent_trunk_checkout "$candidate"; then
