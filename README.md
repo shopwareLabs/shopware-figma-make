@@ -18,6 +18,12 @@ This repository is an overlay. It contains the files Figma Make expects in a Sho
 
 Open this repository in Codex and ask it to set up the overlay. The included `AGENTS.md` tells Codex to run:
 
+```text
+Set up this Shopware Figma Make overlay for me. Find a recent local Shopware trunk checkout and install the overlay there. If no checkout exists, ask me before cloning a clean trunk checkout. Do not run the Figma Make install or dev commands yet.
+```
+
+Codex should then run:
+
 ```bash
 scripts/codex-bootstrap --non-interactive
 ```
